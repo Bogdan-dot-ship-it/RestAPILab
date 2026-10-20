@@ -13,6 +13,9 @@ public class RepairOrderConfiguration : IEntityTypeConfiguration<RepairOrder>
     {
         builder.HasKey(x => x.Id);
 
+        builder.Property(x => x.Id)
+            .HasConversion(x => x.Value, x => new RepairOrderId(x));
+
         builder.Property(x => x.OrderNumber)
             .HasColumnType("varchar(50)")
             .IsRequired();

@@ -1,31 +1,34 @@
 using Api.Dtos;
-using Application.RepairOrders.Services.Abstract;
+using Api.Modules.Errors;
+using Application.Common.Interfaces.Queries;
+using Application.RepairOrders.Commands;
+using Domain.RepairOrders;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers;
 
 [Route("repair-orders")]
 [ApiController]
-public class RepairOrdersController(IRepairOrderService repairOrderService) : ControllerBase
+public class RepairOrdersController(
+    ISender sender,
+    IRepairOrderQueries repairOrderQueries) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<RepairOrderDto>>> GetRepairOrders(CancellationToken cancellationToken)
     {
-        var orders = await repairOrderService.GetRepairOrders(cancellationToken);
-        var dtos = orders.Select(RepairOrderDto.FromDomainModel).ToList();
-        return Ok(dtos);
+        var orders = await repairOrderQueries.GetAll(cancellationToken);
+        return Ok(orders.Select(RepairOrderDto.FromDomainModel).ToList());
     }
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<RepairOrderDto>> GetRepairOrder(Guid id, CancellationToken cancellationToken)
     {
-        var order = await repairOrderService.GetRepairOrder(id, cancellationToken);
-        if (order is null)
-        {
-            return NotFound();
-        }
+        var order = await repairOrderQueries.GetById(new RepairOrderId(id), cancellationToken);
 
-        return Ok(RepairOrderDto.FromDomainModel(order));
+        return order.Match<ActionResult<RepairOrderDto>>(
+            p => Ok(RepairOrderDto.FromDomainModel(p)),
+            () => NotFound());
     }
 
     [HttpPost]
@@ -33,24 +36,23 @@ public class RepairOrdersController(IRepairOrderService repairOrderService) : Co
         [FromBody] CreateRepairOrderDto request,
         CancellationToken cancellationToken)
     {
-        try
+        var command = new CreateRepairOrderCommand
         {
-            var order = await repairOrderService.Add(
-                request.OrderNumber,
-                request.DeviceModel,
-                request.EstimatedCost,
-                request.IsUrgent,
-                request.Status,
-                request.EstimatedCompletionDate,
-                cancellationToken);
+            OrderNumber = request.OrderNumber,
+            DeviceModel = request.DeviceModel,
+            EstimatedCost = request.EstimatedCost,
+            IsUrgent = request.IsUrgent,
+            Status = request.Status,
+            EstimatedCompletionDate = request.EstimatedCompletionDate,
+            DeviceId = request.DeviceId,
+            TechnicianId = request.TechnicianId
+        };
 
-            var dto = RepairOrderDto.FromDomainModel(order);
-            return CreatedAtAction(nameof(GetRepairOrder), new { id = dto.Id }, dto);
-        }
-        catch (ArgumentException exception)
-        {
-            return Conflict(exception.Message);
-        }
+        var result = await sender.Send(command, cancellationToken);
+
+        return result.Match<ActionResult<RepairOrderDto>>(
+            p => CreatedAtAction(nameof(GetRepairOrder), new { id = p.Id.Value }, RepairOrderDto.FromDomainModel(p)),
+            e => e.ToObjectResult());
     }
 
     [HttpPut("{id:guid}")]
@@ -59,40 +61,34 @@ public class RepairOrdersController(IRepairOrderService repairOrderService) : Co
         [FromBody] UpdateRepairOrderDto request,
         CancellationToken cancellationToken)
     {
-        try
+        var command = new UpdateRepairOrderCommand
         {
-            var order = await repairOrderService.Update(
-                id,
-                request.OrderNumber,
-                request.DeviceModel,
-                request.EstimatedCost,
-                request.IsUrgent,
-                request.Status,
-                request.EstimatedCompletionDate,
-                cancellationToken);
+            Id = id,
+            OrderNumber = request.OrderNumber,
+            DeviceModel = request.DeviceModel,
+            EstimatedCost = request.EstimatedCost,
+            IsUrgent = request.IsUrgent,
+            Status = request.Status,
+            EstimatedCompletionDate = request.EstimatedCompletionDate,
+            DeviceId = request.DeviceId,
+            TechnicianId = request.TechnicianId
+        };
 
-            if (order is null)
-            {
-                return NotFound();
-            }
+        var result = await sender.Send(command, cancellationToken);
 
-            return Ok(RepairOrderDto.FromDomainModel(order));
-        }
-        catch (ArgumentException exception)
-        {
-            return Conflict(exception.Message);
-        }
+        return result.Match<ActionResult<RepairOrderDto>>(
+            p => Ok(RepairOrderDto.FromDomainModel(p)),
+            e => e.ToObjectResult());
     }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteRepairOrder(Guid id, CancellationToken cancellationToken)
     {
-        var isDeleted = await repairOrderService.Delete(id, cancellationToken);
-        if (!isDeleted)
-        {
-            return NotFound();
-        }
+        var command = new DeleteRepairOrderCommand { Id = id };
+        var result = await sender.Send(command, cancellationToken);
 
-        return NoContent();
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            e => e.ToObjectResult());
     }
 }

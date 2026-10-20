@@ -12,11 +12,13 @@ public class RepairPartConfiguration : IEntityTypeConfiguration<RepairPart>
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.RepairOrderId)
-            .IsRequired();
+    .HasConversion(x => x.Value, x => new RepairOrderId(x))
+    .IsRequired();
 
         builder.HasOne<RepairOrder>()
             .WithMany()
             .HasForeignKey(x => x.RepairOrderId)
+            .HasPrincipalKey(x => x.Id)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.Property(x => x.PartName)

@@ -7,10 +7,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.SetupServices();
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+await app.InitialiseDatabaseAsync();
 
 if (app.Environment.IsDevelopment())
 {
@@ -18,9 +21,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.ConfigureCors();
-app.MapControllers();
+app.UseCors();
 
-await app.InitialiseDatabaseAsync();
+app.UseAuthorization();
+
+app.MapControllers();
 
 app.Run();

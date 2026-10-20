@@ -1,4 +1,6 @@
 using Application.Common.Interfaces;
+using Application.Common.Interfaces.Queries;
+using Application.Common.Interfaces.Repositories;
 using Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -28,6 +30,10 @@ public static class ConfigurePersistenceServices
             .UseSnakeCaseNamingConvention());
 
         services.AddScoped<ApplicationDbContextInitialiser>();
-        services.AddScoped<IRepairOrderRepository, RepairOrderRepository>();
+        services.AddScoped<RepairOrderRepository>();
+        services.AddScoped<IRepairOrderRepository>(provider =>
+            provider.GetRequiredService<RepairOrderRepository>());
+        services.AddScoped<IRepairOrderQueries>(provider =>
+            provider.GetRequiredService<RepairOrderRepository>());
     }
 }

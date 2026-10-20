@@ -1,19 +1,23 @@
+using Api.Modules.Errors;
+using Microsoft.Extensions.DependencyInjection;
+
 namespace Api.Modules;
 
 public static class SetupModule
 {
     public static void SetupServices(this IServiceCollection services)
     {
-        services.AddControllers();
-        services.AddCors();
-    }
+        services.AddControllers(options =>
+            options.Filters.Add<ValidationExceptionFilter>());
 
-    public static void ConfigureCors(this IApplicationBuilder app)
-    {
-        app.UseCors(policy => policy
-            .SetIsOriginAllowed(_ => true)
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials());
+        services.AddCors(options =>
+        {
+            options.AddDefaultPolicy(policy =>
+            {
+                policy.AllowAnyOrigin()
+                      .AllowAnyMethod()
+                      .AllowAnyHeader();
+            });
+        });
     }
 }
